@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>THE BIGHART — Browser Synthesizer</title>
+<meta name="description" content="A complete synthesizer in a single HTML file. 3 VCOs, dual filters, 64-step sequencer, mutation engine. Buy once, keep forever.">
+<link rel="icon" type="image/png" href="icon-512.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<!-- Gumroad overlay script -->
+<script src="https://gumroad.com/js/gumroad.js"></script>
+<style>
+:root {
+  --bg:       #0b0907;
+  --bg2:      #100d0a;
+  --panel:    #171310;
+  --panel2:   #1e1914;
+  --amber:    #c8922a;
+  --amberLt:  #e8b84b;
+  --amberDim: #6a4a12;
+  --copper:   #a85a28;
+  --copperLt: #d4824a;
+  --green:    #2a7a4a;
+  --greenLt:  #4ab870;
+  --sky:      #286898;
+  --skyLt:    #52a8d8;
+  --red:      #983030;
+  --redLt:    #d45858;
+  --text:     #cfc5b8;
+  --textDm:   #6a5e52;
+  --border:   #28221c;
+  --borderLt: #3a3028;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+  background:var(--bg);color:var(--text);
+  font-family:'Syne',sans-serif;
+  overflow-x:hidden;
+}
+body::after{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:1000;opacity:.03;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='f'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23f)'/%3E%3C/svg%3E");
+}
+
+/* NAV */
+nav{
+  position:fixed;top:0;left:0;right:0;z-index:100;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:16px 40px;
+  background:linear-gradient(180deg,var(--bg) 60%,transparent);
+}
+.nav-logo{
+  display:flex;align-items:center;gap:10px;
+  font-family:'Share Tech Mono',monospace;
+  font-size:10px;letter-spacing:4px;color:var(--amberLt);text-decoration:none;
+}
+.nav-logo img{width:24px;height:24px;border-radius:6px}
+.nav-links{display:flex;gap:24px;list-style:none}
+.nav-links a{
+  font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:2px;
+  color:var(--textDm);text-decoration:none;transition:color .2s;
+}
+.nav-links a:hover{color:var(--amberLt)}
+@media(max-width:600px){.nav-links{display:none}}
+
+/* HERO */
+.hero{
+  min-height:100vh;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  text-align:center;padding:140px 32px 100px;
+  position:relative;overflow:hidden;
+}
+.hero-blob{
+  position:absolute;top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  width:900px;height:700px;
+  background:radial-gradient(ellipse,rgba(200,146,42,.12) 0%,transparent 65%);
+  pointer-events:none;
+  animation:pulse 7s ease-in-out infinite;
+}
+@keyframes pulse{0%,100%{opacity:.6;transform:translate(-50%,-50%) scale(1)}50%{opacity:1;transform:translate(-50%,-50%) scale(1.08)}}
+
+.hero-tag{
+  font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:6px;color:var(--copper);
+  margin-bottom:24px;animation:up .7s ease both;position:relative;z-index:2;
+}
+.hero-title{
+  font-size:clamp(64px,14vw,136px);font-weight:800;line-height:.88;letter-spacing:-3px;
+  color:var(--amberLt);text-shadow:0 0 100px rgba(200,146,42,.25);
+  animation:up .8s .08s ease both;position:relative;z-index:2;
+}
+.hero-title em{font-style:normal;color:var(--copper)}
+.hero-sub{
+  font-size:clamp(14px,2.2vw,18px);font-weight:400;color:var(--textDm);
+  margin-top:20px;line-height:1.7;
+  animation:up .9s .16s ease both;position:relative;z-index:2;
+}
+
+/* scope */
+.scope-wrap{
+  width:100%;max-width:680px;margin:52px auto 48px;
+  position:relative;z-index:2;animation:up 1s .26s ease both;
+}
+.scope-frame{
+  background:#070503;border:1px solid var(--borderLt);border-radius:8px;
+  padding:20px 22px 14px;
+  box-shadow:0 0 80px rgba(200,146,42,.1),inset 0 1px 0 rgba(255,255,255,.025);
+  position:relative;overflow:hidden;
+}
+.scope-frame::before{
+  content:'';position:absolute;inset:0;pointer-events:none;
+  background:
+    repeating-linear-gradient(0deg,transparent,transparent 23px,rgba(200,146,42,.022) 23px,rgba(200,146,42,.022) 24px),
+    repeating-linear-gradient(90deg,transparent,transparent 23px,rgba(200,146,42,.022) 23px,rgba(200,146,42,.022) 24px);
+}
+.scope-label{position:absolute;top:7px;left:13px;font-family:'Share Tech Mono',monospace;font-size:6px;letter-spacing:3px;color:rgba(200,146,42,.3)}
+.scope-ch{position:absolute;top:7px;right:13px;font-family:'Share Tech Mono',monospace;font-size:6px;letter-spacing:2px;color:rgba(74,184,112,.45)}
+svg.scope{width:100%;height:110px;display:block;overflow:visible}
+
+/* PRICE BLOCK */
+.price-block{
+  position:relative;z-index:2;
+  animation:up 1s .38s ease both;
+  display:flex;flex-direction:column;align-items:center;gap:14px;
+}
+.price-tag{
+  display:flex;align-items:baseline;gap:6px;
+  font-family:'Share Tech Mono',monospace;
+}
+.price-amount{
+  font-size:52px;font-weight:700;color:var(--amberLt);line-height:1;
+  text-shadow:0 0 40px rgba(200,146,42,.3);
+}
+.price-currency{font-size:22px;color:var(--copper);margin-bottom:4px}
+.price-note{font-size:11px;letter-spacing:2px;color:var(--textDm)}
+
+/* BUY BUTTON */
+.btn-buy{
+  display:inline-flex;align-items:center;gap:14px;
+  background:linear-gradient(160deg,rgba(200,146,42,.45),rgba(200,146,42,.25));
+  color:var(--amberLt);border:1px solid rgba(200,146,42,.7);
+  border-radius:8px;padding:18px 52px;
+  font-family:'Share Tech Mono',monospace;font-size:13px;letter-spacing:5px;
+  text-decoration:none;cursor:pointer;
+  box-shadow:0 0 52px rgba(200,146,42,.2),inset 0 1px 0 rgba(255,255,255,.07);
+  transition:all .2s;
+}
+.btn-buy:hover{
+  background:linear-gradient(160deg,rgba(200,146,42,.6),rgba(200,146,42,.38));
+  box-shadow:0 0 80px rgba(200,146,42,.4),inset 0 1px 0 rgba(255,255,255,.1);
+  transform:translateY(-2px);
+}
+.btn-buy:active{transform:translateY(1px)}
+.btn-buy-note{
+  font-family:'Share Tech Mono',monospace;font-size:8px;letter-spacing:2px;color:var(--textDm);
+}
+
+/* free try link */
+.try-link{
+  font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:2px;
+  color:var(--textDm);text-decoration:none;border-bottom:1px solid var(--border);
+  padding-bottom:1px;transition:color .2s,border-color .2s;
+}
+.try-link:hover{color:var(--amberLt);border-color:var(--amberDim)}
+
+@keyframes up{from{opacity:0;transform:translateY(28px)}to{opacity:1;transform:none}}
+
+/* LAYOUT */
+.wrap{max-width:1020px;margin:0 auto;padding:0 32px}
+.hr{height:1px;background:linear-gradient(90deg,transparent,var(--border),var(--borderLt),var(--border),transparent)}
+section{padding:96px 0}
+.eyebrow{font-family:'Share Tech Mono',monospace;font-size:8px;letter-spacing:5px;color:var(--copper);margin-bottom:14px}
+.sec-h{font-size:clamp(28px,5vw,46px);font-weight:800;line-height:1.05;color:var(--amberLt);margin-bottom:18px}
+.sec-p{font-size:15px;line-height:1.8;color:var(--textDm);font-weight:400;max-width:540px}
+.sec-p strong{color:var(--text)}
+
+/* SCROLL REVEAL */
+.rv{opacity:0;transform:translateY(28px);transition:opacity .75s ease,transform .75s ease}
+.rv.in{opacity:1;transform:none}
+.rv.d1{transition-delay:.1s}.rv.d2{transition-delay:.2s}.rv.d3{transition-delay:.3s}
+
+/* WHAT YOU GET */
+.wyg-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:44px}
+@media(max-width:600px){.wyg-grid{grid-template-columns:1fr}}
+.wyg-card{
+  background:var(--panel);border:1px solid var(--border);
+  border-radius:10px;padding:22px 20px;
+  display:flex;gap:14px;align-items:flex-start;
+  transition:border-color .2s;
+}
+.wyg-card:hover{border-color:var(--amberDim)}
+.wyg-icon{font-size:20px;line-height:1;flex-shrink:0;margin-top:2px}
+.wyg-title{font-family:'Share Tech Mono',monospace;font-size:8px;letter-spacing:2px;color:var(--amberLt);margin-bottom:7px}
+.wyg-body{font-size:13px;line-height:1.65;color:var(--textDm)}
+.wyg-body strong{color:var(--text)}
+
+/* FEATURES */
+#features{background:var(--bg2)}
+.feat-grid{
+  display:grid;grid-template-columns:repeat(3,1fr);
+  gap:1px;background:var(--border);
+  border:1px solid var(--border);border-radius:12px;
+  overflow:hidden;margin-top:52px;
+}
+@media(max-width:640px){.feat-grid{grid-template-columns:1fr}}
+.feat{background:var(--panel);padding:28px 24px;transition:background .2s}
+.feat:hover{background:var(--panel2)}
+.feat-icon{font-size:22px;line-height:1;margin-bottom:14px;display:block}
+.feat-name{font-family:'Share Tech Mono',monospace;font-size:8px;letter-spacing:3px;color:var(--amberLt);margin-bottom:10px}
+.feat-body{font-size:13px;line-height:1.7;color:var(--textDm)}
+.feat-body strong{color:var(--text)}
+
+/* SIGNAL CHAIN */
+.chain-row{
+  display:flex;align-items:stretch;overflow-x:auto;
+  padding-bottom:12px;margin-top:50px;
+  scrollbar-width:thin;scrollbar-color:var(--border) transparent;
+}
+.chain-node{
+  flex-shrink:0;background:var(--panel);border:1px solid var(--border);
+  padding:12px 14px;text-align:center;min-width:78px;
+  transition:border-color .2s,box-shadow .2s;
+}
+.chain-node:first-child{border-radius:8px 0 0 8px}
+.chain-node:last-child{border-radius:0 8px 8px 0}
+.chain-node:hover{border-color:var(--amberDim);box-shadow:0 0 14px rgba(200,146,42,.2);z-index:1}
+.cn-icon{font-size:15px;line-height:1;display:block}
+.cn-name{font-family:'Share Tech Mono',monospace;font-size:6px;letter-spacing:2px;color:var(--amberLt);display:block;margin-top:6px}
+.cn-sub{font-family:'Share Tech Mono',monospace;font-size:5px;color:var(--textDm);display:block;margin-top:2px;letter-spacing:1px}
+.chain-arrow{flex-shrink:0;display:flex;align-items:center;justify-content:center;width:20px;color:var(--amberDim);font-size:11px;font-family:'Share Tech Mono',monospace}
+
+/* MUTATE */
+#mutate{background:var(--bg2)}
+.mut-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:48px}
+@media(max-width:640px){.mut-grid{grid-template-columns:1fr}}
+.mut-card{
+  background:var(--panel);border:1px solid var(--border);
+  border-radius:10px;padding:22px 20px;
+  position:relative;overflow:hidden;transition:border-color .25s;
+}
+.mut-card::after{content:'';position:absolute;top:0;left:0;right:0;height:2px;opacity:0;transition:opacity .25s}
+.mut-card:hover{border-color:var(--amberDim)}.mut-card:hover::after{opacity:1}
+.mc-a::after{background:linear-gradient(90deg,transparent,var(--amber),transparent)}
+.mc-s::after{background:linear-gradient(90deg,transparent,var(--sky),transparent)}
+.mc-g::after{background:linear-gradient(90deg,transparent,var(--green),transparent)}
+.mc-r::after{background:linear-gradient(90deg,transparent,var(--red),transparent)}
+.mc-c::after{background:linear-gradient(90deg,transparent,var(--copper),transparent)}
+.mut-label{font-family:'Share Tech Mono',monospace;font-size:7px;letter-spacing:3px;margin-bottom:10px;display:block}
+.mc-a .mut-label{color:var(--amberLt)}.mc-s .mut-label{color:var(--skyLt)}.mc-g .mut-label{color:var(--greenLt)}.mc-r .mut-label{color:var(--redLt)}.mc-c .mut-label{color:var(--copperLt)}
+.mut-body{font-size:13px;line-height:1.65;color:var(--textDm)}
+.mut-body strong{color:var(--text)}
+.tag-row{display:flex;flex-wrap:wrap;gap:4px;margin-top:9px}
+.tag{font-family:'Share Tech Mono',monospace;font-size:7px;letter-spacing:1px;padding:2px 7px;border-radius:3px;border:1px solid}
+.tag-s{color:var(--skyLt);border-color:rgba(82,168,216,.4);background:rgba(82,168,216,.08)}
+.tag-c{color:var(--copperLt);border-color:rgba(212,130,74,.4);background:rgba(212,130,74,.08)}
+.tag-d{color:var(--textDm);border-color:var(--border);background:transparent}
+
+/* PWA */
+.pwa-pills{display:flex;flex-wrap:wrap;gap:8px;margin-top:44px}
+.pwa-pill{
+  display:flex;align-items:center;gap:8px;
+  background:var(--panel);border:1px solid var(--border);
+  border-radius:50px;padding:8px 16px;
+  font-family:'Share Tech Mono',monospace;font-size:8px;letter-spacing:2px;
+  color:var(--textDm);transition:all .2s;
+}
+.pwa-pill:hover{border-color:var(--amberDim);color:var(--amberLt)}
+.dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+
+/* HOW IT WORKS */
+#how{background:var(--bg2)}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:48px}
+@media(max-width:640px){.steps{grid-template-columns:1fr}}
+.step{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:24px 20px}
+.step-n{font-family:'Share Tech Mono',monospace;font-size:32px;font-weight:700;color:rgba(200,146,42,.22);line-height:1;margin-bottom:14px;display:block}
+.step-title{font-family:'Share Tech Mono',monospace;font-size:8px;letter-spacing:2px;color:var(--amberLt);margin-bottom:8px}
+.step-body{font-size:13px;line-height:1.7;color:var(--textDm)}
+.step-body strong{color:var(--text)}
+
+/* CTA BOTTOM */
+#cta{
+  text-align:center;padding:120px 32px 130px;
+  position:relative;overflow:hidden;
+}
+#cta::before{
+  content:'';position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(ellipse at 50% 50%,rgba(200,146,42,.1) 0%,transparent 65%);
+  animation:pulse 8s ease-in-out infinite;
+}
+.cta-title{font-size:clamp(34px,7vw,62px);font-weight:800;color:var(--amberLt);position:relative;z-index:2;margin-bottom:14px}
+.cta-sub{font-size:16px;font-weight:400;color:var(--textDm);line-height:1.7;position:relative;z-index:2;margin-bottom:46px;max-width:400px;margin-left:auto;margin-right:auto}
+.cta-sub strong{color:var(--text)}
+
+/* FAQ */
+#faq{background:var(--bg2)}
+.faq-list{margin-top:44px;display:flex;flex-direction:column;gap:2px}
+.faq-item{background:var(--panel);border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.faq-q{
+  width:100%;text-align:left;background:none;border:none;
+  padding:18px 22px;cursor:pointer;
+  display:flex;justify-content:space-between;align-items:center;gap:16px;
+  font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:2px;color:var(--text);
+  transition:color .2s;
+}
+.faq-q:hover{color:var(--amberLt)}
+.faq-arrow{color:var(--amberDim);font-size:11px;flex-shrink:0;transition:transform .25s}
+.faq-a{
+  max-height:0;overflow:hidden;transition:max-height .3s ease;
+  font-size:14px;line-height:1.75;color:var(--textDm);
+}
+.faq-a-inner{padding:0 22px 18px}
+.faq-a strong{color:var(--text)}
+.faq-item.open .faq-arrow{transform:rotate(90deg)}
+.faq-item.open .faq-a{max-height:200px}
+
+/* FOOTER */
+footer{border-top:1px solid var(--border);padding:26px 40px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.footer-l{font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:3px;color:var(--amberDim)}
+.footer-r{font-family:'Share Tech Mono',monospace;font-size:8px;letter-spacing:1px;color:var(--textDm)}
+</style>
+</head>
+<body>
+
+<nav>
+  <a class="nav-logo" href="#">
+    <img src="icon-192.png" alt="">
+    THE BIGHART
+  </a>
+  <ul class="nav-links">
+    <li><a href="#what-you-get">WHAT YOU GET</a></li>
+    <li><a href="#features">FEATURES</a></li>
+    <li><a href="#mutate">MUTATE</a></li>
+    <li><a href="#faq">FAQ</a></li>
+    <li><a href="#cta">BUY</a></li>
+  </ul>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-blob"></div>
+  <p class="hero-tag">BROWSER SYNTHESIZER · ONE FILE · YOURS FOREVER</p>
+  <h1 class="hero-title">THE<br><em>BIG</em>HART</h1>
+  <p class="hero-sub">A complete polyphonic synthesizer.<br>No plugins. No subscriptions. No internet required.</p>
+
+  <div class="scope-wrap">
+    <div class="scope-frame">
+      <span class="scope-label">OSCILLOSCOPE</span>
+      <span class="scope-ch">CH1 ◈ MAIN OUT</span>
+      <svg class="scope" viewBox="0 0 640 110" preserveAspectRatio="none">
+        <defs>
+          <filter id="glow"><feGaussianBlur stdDeviation="2.4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+        </defs>
+        <line x1="0" y1="55" x2="640" y2="55" stroke="rgba(200,146,42,.07)" stroke-width="1"/>
+        <path id="scopePath" fill="none" stroke="var(--amberLt)" stroke-width="1.6" filter="url(#glow)" opacity=".9"/>
+      </svg>
+    </div>
+  </div>
+
+  <div class="price-block">
+    <div class="price-tag">
+      <span class="price-currency">$</span>
+      <span class="price-amount">12</span>
+    </div>
+    <p class="price-note">ONE-TIME PAYMENT · INSTANT DOWNLOAD · KEEP FOREVER</p>
+    <!-- REPLACE href WITH YOUR GUMROAD LINK -->
+    <a class="btn-buy" href="https://renardoberou.gumroad.com/l/winjhn" data-gumroad-overlay-checkout="true">
+      ◈ &nbsp;BUY THE BIGHART
+    </a>
+    <p class="btn-buy-note">SECURE PAYMENT VIA GUMROAD &nbsp;·&nbsp; INSTANT DELIVERY</p>
+  </div>
+</section>
+
+<div class="hr"></div>
+
+<!-- WHAT YOU GET -->
+<section id="what-you-get">
+  <div class="wrap">
+    <p class="eyebrow rv">WHAT YOU GET</p>
+    <h2 class="sec-h rv d1">Everything in<br>one file.</h2>
+    <div class="wyg-grid rv d2">
+      <div class="wyg-card">
+        <span class="wyg-icon">◈</span>
+        <div>
+          <p class="wyg-title">THE SYNTH FILE</p>
+          <p class="wyg-body">A single <strong>the-bighart.html</strong> file. Open it in Chrome or Safari — it works immediately, no setup. Keep it on your phone, laptop, or USB drive and it'll work anywhere, forever.</p>
+        </div>
+      </div>
+      <div class="wyg-card">
+        <span class="wyg-icon">∞</span>
+        <div>
+          <p class="wyg-title">LIFETIME ACCESS</p>
+          <p class="wyg-body">Buy once, own it forever. No subscription. No account required. No server to go offline. The file is yours to keep on any device you own.</p>
+        </div>
+      </div>
+      <div class="wyg-card">
+        <span class="wyg-icon">📱</span>
+        <div>
+          <p class="wyg-title">INSTALLABLE AS AN APP</p>
+          <p class="wyg-body">Add it to your phone's home screen like a native app. Runs <strong>full-screen, offline</strong>, with its own icon. Works on Android and iPhone.</p>
+        </div>
+      </div>
+      <div class="wyg-card">
+        <span class="wyg-icon">🎛</span>
+        <div>
+          <p class="wyg-title">MIDI CONTROLLER SUPPORT</p>
+          <p class="wyg-body">Connect a MIDI keyboard or controller and play it live. Supports CC mapping and external clock sync to lock the sequencer to your DAW or hardware.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="hr"></div>
+
+<!-- FEATURES -->
+<section id="features">
+  <div class="wrap">
+    <p class="eyebrow rv">UNDER THE HOOD</p>
+    <h2 class="sec-h rv d1">Everything a synthesizer<br>should have.</h2>
+    <div class="feat-grid rv d2">
+      <div class="feat">
+        <span class="feat-icon">〜</span>
+        <p class="feat-name">3 OSCILLATORS · 6 WAVEFORMS</p>
+        <p class="feat-body">Fully independent VCOs with octave and semitone tuning. <strong>Sawtooth, sharkfin, ultrasaw, sine, pulse,</strong> and a <strong>Buchla-style wavefolder</strong>. Per-VCO drift for organic instability.</p>
+      </div>
+      <div class="feat">
+        <span class="feat-icon">▽</span>
+        <p class="feat-name">DUAL FILTER STACK + HPF</p>
+        <p class="feat-body">Two lowpass filters in series with optional Moog ladder cascade. High-pass at the chain head. Full <strong>filter envelope</strong> and <strong>LFO modulation</strong> on cutoff.</p>
+      </div>
+      <div class="feat">
+        <span class="feat-icon">⊡</span>
+        <p class="feat-name">64-STEP SEQUENCER</p>
+        <p class="feat-body">Four pages of 16 steps. <strong>Long-press any step</strong> to open the Step Inspector — lock its waveform or filter cutoff. A 4-step polyrhythm sequencer B runs simultaneously.</p>
+      </div>
+      <div class="feat">
+        <span class="feat-icon">◈</span>
+        <p class="feat-name">SATURATION + COMPRESSION</p>
+        <p class="feat-body">A <strong>tanh waveshaper at 4× oversampling</strong> with LFO-modulated drive. Optical compressor with musical pumping. Brick-wall limiter at −3 dBFS.</p>
+      </div>
+      <div class="feat">
+        <span class="feat-icon">↻</span>
+        <p class="feat-name">DIGITAL DELAY</p>
+        <p class="feat-body"><strong>Wow</strong> (tape drift), <strong>flutter</strong> (fast wobble), <strong>tone</strong> (brightness), and <strong>loss</strong> (progressive darkening of repeats). 10ms to 1.5s range.</p>
+      </div>
+      <div class="feat">
+        <span class="feat-icon">∿</span>
+        <p class="feat-name">REVERB · MIDI · SYNC</p>
+        <p class="feat-body">Convolution shimmer reverb. Full MIDI support with CC mapping. Sync pulse output to drive hardware gear. 8 built-in presets to start from.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="hr"></div>
+
+<!-- SIGNAL CHAIN -->
+<section id="chain">
+  <div class="wrap">
+    <p class="eyebrow rv">SIGNAL PATH</p>
+    <h2 class="sec-h rv d1">Nothing hidden<br>in the chain.</h2>
+    <p class="sec-p rv d2">Every stage is explicit and ordered. Signal flows front to back — no hidden parallel paths.</p>
+    <div class="chain-row rv d3">
+      <div class="chain-node"><span class="cn-icon">〜</span><span class="cn-name">VCO 1–3</span><span class="cn-sub">3 OSC MIX</span></div>
+      <div class="chain-arrow">›</div>
+      <div class="chain-node"><span class="cn-icon">◈</span><span class="cn-name">SATURATOR</span><span class="cn-sub">tanh 4×OS</span></div>
+      <div class="chain-arrow">›</div>
+      <div class="chain-node"><span class="cn-icon">◎</span><span class="cn-name">OPT COMP</span><span class="cn-sub">OPTICAL</span></div>
+      <div class="chain-arrow">›</div>
+      <div class="chain-node"><span class="cn-icon">▽</span><span class="cn-name">HPF</span><span class="cn-sub">HIGH-PASS</span></div>
+      <div class="chain-arrow">›</div>
+      <div class="chain-node"><span class="cn-icon">▽</span><span class="cn-name">LPF 1+2</span><span class="cn-sub">DUAL LADDER</span></div>
+      <div class="chain-arrow">›</div>
+      <div class="chain-node"><span class="cn-icon">◈</span><span class="cn-name">SAT + LFO</span><span class="cn-sub">DRIVE MOD</span></div>
+      <div class="chain-arrow">›</div>
+      <div class="chain-node"><span class="cn-icon">↻</span><span class="cn-name">DELAY</span><span class="cn-sub">WOW / FLUT</span></div>
+      <div class="chain-arrow">›</div>
+      <div class="chain-node"><span class="cn-icon">∿</span><span class="cn-name">REVERB</span><span class="cn-sub">CONVOL.</span></div>
+      <div class="chain-arrow">›</div>
+      <div class="chain-node"><span class="cn-icon">⌇</span><span class="cn-name">LIMITER</span><span class="cn-sub">−3 dBFS</span></div>
+      <div class="chain-arrow">›</div>
+      <div class="chain-node"><span class="cn-icon">◉</span><span class="cn-name">OUT</span><span class="cn-sub">MASTER</span></div>
+    </div>
+  </div>
+</section>
+
+<div class="hr"></div>
+
+<!-- MUTATE -->
+<section id="mutate">
+  <div class="wrap">
+    <p class="eyebrow rv">MUTATE ENGINE</p>
+    <h2 class="sec-h rv d1">Sequences that<br><em style="font-style:italic;color:var(--copper)">change themselves.</em></h2>
+    <p class="sec-p rv d2" style="margin-bottom:0">Per-page direction and rate. Entropy, modal lock, interval freeze, and octave collapse — all live, all reversible.</p>
+    <div class="mut-grid rv d3">
+      <div class="mut-card mc-a">
+        <span class="mut-label">⟳ DIRECTION · PER PAGE</span>
+        <p class="mut-body"><strong>Forward, reverse, pendulum,</strong> or <strong>random</strong> — independently per page. Mix directions for polyrhythmic counterpoint.</p>
+      </div>
+      <div class="mut-card mc-s">
+        <span class="mut-label">⚡ RATE · PER PAGE</span>
+        <p class="mut-body">Each page at <strong>½×, 1×, or 2×</strong> the master clock. Instant rhythmic density without touching BPM.</p>
+      </div>
+      <div class="mut-card mc-g">
+        <span class="mut-label">≈ ENTROPY</span>
+        <p class="mut-body">Steps jump to <strong>fifths and octaves</strong> of their root note. Wave locks shift. Filter overrides drift. Never static.</p>
+      </div>
+      <div class="mut-card mc-s">
+        <span class="mut-label">⬡ MODAL LOCK</span>
+        <p class="mut-body">Constrain jumps to a mode. Entropy runs high — the melody stays tonal.
+          <span class="tag-row">
+            <span class="tag tag-d">OFF</span>
+            <span class="tag tag-s">MAJ</span><span class="tag tag-s">MIN</span>
+            <span class="tag tag-s">DOR</span><span class="tag tag-s">PHR</span>
+            <span class="tag tag-s">LYD</span><span class="tag tag-s">MIX</span>
+            <span class="tag tag-s">LOC</span>
+          </span>
+        </p>
+      </div>
+      <div class="mut-card mc-c">
+        <span class="mut-label">〰 INTERVAL FREEZE</span>
+        <p class="mut-body">All movement becomes one interval up or down.
+          <span class="tag-row">
+            <span class="tag tag-d">OFF</span>
+            <span class="tag tag-c">m2</span><span class="tag tag-c">M2</span>
+            <span class="tag tag-c">m3</span><span class="tag tag-c">M3</span>
+            <span class="tag tag-c">P4</span><span class="tag tag-c">TT</span>
+            <span class="tag tag-c">P5</span><span class="tag tag-c">m7</span>
+            <span class="tag tag-c">M7</span>
+          </span>
+        </p>
+      </div>
+      <div class="mut-card mc-r">
+        <span class="mut-label">↓ OCTAVE COLLAPSE</span>
+        <p class="mut-body">Notes scattered by entropy <strong>gradually converge</strong> back toward their original register. A slow gravitational pull.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="hr"></div>
+
+<!-- PWA -->
+<section id="pwa">
+  <div class="wrap">
+    <p class="eyebrow rv">PROGRESSIVE WEB APP</p>
+    <h2 class="sec-h rv d1">Installs like<br>a native app.</h2>
+    <p class="sec-p rv d2">Open in Chrome or Safari — it runs immediately. Add to your home screen for a full-screen, offline experience with its own icon on your launcher.</p>
+    <div class="pwa-pills rv d3">
+      <div class="pwa-pill"><span class="dot" style="background:var(--greenLt)"></span>WORKS OFFLINE</div>
+      <div class="pwa-pill"><span class="dot" style="background:var(--amberLt)"></span>HOME SCREEN ICON</div>
+      <div class="pwa-pill"><span class="dot" style="background:var(--skyLt)"></span>FULL SCREEN MODE</div>
+      <div class="pwa-pill"><span class="dot" style="background:var(--copperLt)"></span>MIDI SUPPORT</div>
+      <div class="pwa-pill"><span class="dot" style="background:var(--redLt)"></span>PRESETS SAVED LOCALLY</div>
+      <div class="pwa-pill"><span class="dot" style="background:var(--greenLt)"></span>NO ACCOUNT NEEDED</div>
+    </div>
+  </div>
+</section>
+
+<div class="hr"></div>
+
+<!-- HOW IT WORKS -->
+<section id="how">
+  <div class="wrap">
+    <p class="eyebrow rv">HOW IT WORKS</p>
+    <h2 class="sec-h rv d1">From purchase<br>to playing.</h2>
+    <div class="steps rv d2">
+      <div class="step">
+        <span class="step-n">01</span>
+        <p class="step-title">BUY</p>
+        <p class="step-body">Pay once via Gumroad. You'll receive an email with a <strong>download link</strong> immediately. No account required.</p>
+      </div>
+      <div class="step">
+        <span class="step-n">02</span>
+        <p class="step-title">DOWNLOAD</p>
+        <p class="step-body">Download <strong>the-bighart.html</strong> to your phone or computer. Open it in <strong>Chrome</strong> (Android) or <strong>Safari</strong> (iPhone) and it runs instantly.</p>
+      </div>
+      <div class="step">
+        <span class="step-n">03</span>
+        <p class="step-title">INSTALL & PLAY</p>
+        <p class="step-body">Add to your home screen for the full app experience. Your presets save locally. Works <strong>forever</strong> — even if this website disappears.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="hr"></div>
+
+<!-- FAQ -->
+<section id="faq">
+  <div class="wrap">
+    <p class="eyebrow rv">FAQ</p>
+    <h2 class="sec-h rv d1">Questions.</h2>
+    <div class="faq-list rv d2">
+      <div class="faq-item">
+        <button class="faq-q">WHAT DO I ACTUALLY RECEIVE? <span class="faq-arrow">›</span></button>
+        <div class="faq-a"><div class="faq-a-inner">A single HTML file called <strong>the-bighart.html</strong>. That file contains the entire synthesizer — no other files needed. Open it in any modern browser and it works.</div></div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q">DOES IT WORK ON IPHONE? <span class="faq-arrow">›</span></button>
+        <div class="faq-a"><div class="faq-a-inner">Yes — open it in <strong>Safari</strong> on iPhone. For Android use <strong>Chrome</strong>. Both support installation to the home screen as a full-screen app.</div></div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q">WHAT HAPPENS IF THE WEBSITE GOES OFFLINE? <span class="faq-arrow">›</span></button>
+        <div class="faq-a"><div class="faq-a-inner">Nothing — once you have the file it works completely independently of this website. It runs offline on your device. <strong>You own it.</strong></div></div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q">DO I NEED A DAW OR ANY OTHER SOFTWARE? <span class="faq-arrow">›</span></button>
+        <div class="faq-a"><div class="faq-a-inner">No. The Bighart runs entirely in the browser using the Web Audio API. No plugins, no installs, no DAW required. Just open the file.</div></div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q">CAN I USE IT WITH MY MIDI CONTROLLER? <span class="faq-arrow">›</span></button>
+        <div class="faq-a"><div class="faq-a-inner">Yes — The Bighart supports MIDI in via the browser's Web MIDI API. Connect your controller and use it to play notes or map CCs to synth parameters. External clock sync is also supported.</div></div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q">IS THERE A REFUND POLICY? <span class="faq-arrow">›</span></button>
+        <div class="faq-a"><div class="faq-a-inner">Because this is a digital download, sales are final. If you have a technical issue, reach out and I'll do everything I can to help.</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="hr"></div>
+
+<!-- CTA BOTTOM -->
+<section id="cta">
+  <div class="wrap">
+    <h2 class="cta-title rv">Get The Bighart.</h2>
+    <p class="cta-sub rv d1"><strong>$12. One time. Forever.</strong><br>No subscription. No account. Just the synth.</p>
+    <!-- REPLACE href WITH YOUR GUMROAD LINK -->
+    <a class="btn-buy rv d2" href="https://renardoberou.gumroad.com/l/winjhn" data-gumroad-overlay-checkout="true">
+      ◈ &nbsp;BUY THE BIGHART — $12
+    </a>
+    <p class="btn-buy-note rv d3" style="margin-top:14px;position:relative;z-index:2">SECURE PAYMENT VIA GUMROAD &nbsp;·&nbsp; INSTANT DELIVERY</p>
+  </div>
+</section>
+
+<footer>
+  <span class="footer-l">◈ THE BIGHART</span>
+  <span class="footer-r">© 2025 RENARDO BEROU &nbsp;·&nbsp; ALL RIGHTS RESERVED</span>
+</footer>
+
+<script>
+// Oscilloscope
+(function(){
+  var path=document.getElementById('scopePath');
+  var t=0;
+  function draw(){
+    var pts=[];
+    for(var x=0;x<=640;x++){
+      var p=(x/640)*Math.PI*6;
+      var y=Math.sin(p+t*1.1)*0.30+Math.sin(p*2+t*0.85)*0.18
+           +Math.sin(p*3+t*1.35)*0.10+Math.sin(p*5.1+t*0.7)*0.06
+           +Math.sin(p*7+t*1.05)*0.03+Math.sin(t*0.28+(x/640)*Math.PI)*0.09;
+      pts.push(x+','+(55-y*46));
+    }
+    path.setAttribute('d','M'+pts.join('L'));
+    t+=0.017;
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+// Scroll reveal
+(function(){
+  var els=document.querySelectorAll('.rv');
+  var io=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target);}});
+  },{threshold:0.08});
+  els.forEach(function(e){io.observe(e);});
+})();
+
+// FAQ accordion
+document.querySelectorAll('.faq-q').forEach(function(btn){
+  btn.addEventListener('click',function(){
+    var item=btn.parentElement;
+    var wasOpen=item.classList.contains('open');
+    document.querySelectorAll('.faq-item').forEach(function(i){i.classList.remove('open');});
+    if(!wasOpen)item.classList.add('open');
+  });
+});
+</script>
+</body>
+</html>
